@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       claimNumber,
+      practiceId,
       patientId,
       providerId,
       payerId,
@@ -44,15 +45,25 @@ export async function POST(request: NextRequest) {
       priorAuthObtained,
     } = body;
 
+    if (!practiceId || !patientId || !providerId || !payerId || !claimNumber) {
+      return NextResponse.json(
+        { error: 'Missing required fields: practiceId, patientId, providerId, payerId, claimNumber' },
+        { status: 400 }
+      );
+    }
+
+    const billedAmountNum = parseFloat(billedAmount);
     const claim = await prisma.claim.create({
       data: {
         claimNumber,
+        practiceId,
         patientId,
         providerId,
         payerId,
         dateOfService: new Date(dateOfService),
-        billedAmount: parseFloat(billedAmount),
-        balance: parseFloat(billedAmount), // Initial balance equals billed amount
+        billedAmount: billedAmountNum,
+        balance: billedAmountNum, // Initial balance equals billed amount
+        age: 0, // Age in days since submission, starts at 0
         cptCode,
         icdCode,
         units: parseInt(units) || 1,
@@ -65,6 +76,7 @@ export async function POST(request: NextRequest) {
         patient: true,
         provider: true,
         payer: true,
+        practice: true,
       },
     });
 
