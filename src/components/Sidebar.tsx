@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-
 const menuItems = [
   { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
   { id: 'scheduling', icon: '📅', label: 'Scheduling', badge: null },
@@ -23,13 +21,15 @@ const menuItems = [
 interface SidebarProps {
   activePage: string;
   onPageChange: (page: string) => void;
+  claimBadge: number;
+  denialBadge: number;
+  paBadge: number;
 }
 
-export default function Sidebar({ activePage, onPageChange }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function Sidebar({ activePage, onPageChange, claimBadge, denialBadge, paBadge }: SidebarProps) {
 
   return (
-    <nav className={`sb ${collapsed ? 'col' : ''}`}>
+    <nav className="sb">
       <div className="nst">Overview</div>
       <div
         className={`ni ${activePage === 'dashboard' ? 'act' : ''}`}
@@ -55,7 +55,8 @@ export default function Sidebar({ activePage, onPageChange }: SidebarProps) {
         >
           <span className="ni-ic">{item.icon}</span>
           <span className="nl">{item.label}</span>
-          {item.badge && <span className="nb">{item.badge}</span>}
+          {item.id === 'claims' && claimBadge > 0 && <span className="nb">{claimBadge}</span>}
+          {item.id === 'denial' && denialBadge > 0 && <span className="nb">{denialBadge}</span>}
         </div>
       ))}
 
@@ -68,7 +69,7 @@ export default function Sidebar({ activePage, onPageChange }: SidebarProps) {
         >
           <span className="ni-ic">{item.icon}</span>
           <span className="nl">{item.label}</span>
-          {item.badge && <span className="nb">{item.badge}</span>}
+          {item.id === 'priorauth' && paBadge > 0 && <span className="nb">{paBadge}</span>}
         </div>
       ))}
 
