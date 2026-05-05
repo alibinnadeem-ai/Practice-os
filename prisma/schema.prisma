@@ -1,0 +1,285 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Practice {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // Dental, Medical, etc.
+  npi         String
+  taxId       String?
+  phone       String?
+  fax         String?
+  address     String?
+  posCode     String?  // Place of Service
+  taxonomyCode String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patients    Patient[]
+  providers   Provider[]
+  claims      Claim[]
+  appointments Appointment[]
+  vobs        VOB[]
+  priorAuths  PriorAuth[]
+  credentialings Credentialing[]
+  payments    Payment[]
+  writeOffs   WriteOff[]
+
+  @@map("practices")
+}
+
+model Patient {
+  id          String   @id @default(cuid())
+  mrn         String   @unique
+  firstName   String
+  lastName    String
+  dob         DateTime
+  phone       String?
+  gender      String?
+  address     String?
+  insurance   String?
+  memberId    String?
+  balance     Float    @default(0)
+  lastVisit   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  claims      Claim[]
+  appointments Appointment[]
+  vobs        VOB[]
+  priorAuths  PriorAuth[]
+  payments    Payment[]
+
+  @@map("patients")
+}
+
+model Provider {
+  id          String   @id @default(cuid())
+  name        String
+  specialty   String?
+  npi         String   @unique
+  dea         String?
+  monthlyRVU  Float?
+  collections Float?
+  status      String   @default("Active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+  claims      Claim[]
+  credentialings Credentialing[]
+
+  @@map("providers")
+}
+
+model Payer {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   // Insurance, Medicare, Medicaid, Self-Pay
+  payerId     String?
+  avgPayRate  Float?
+  visitsPerMonth Int?
+  arDays      Int?
+  contractExp DateTime?
+  status      String   @default("Active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  claims      Claim[]
+  vobs        VOB[]
+  priorAuths  PriorAuth[]
+  credentialings Credentialing[]
+  payments    Payment[]
+
+  @@map("payers")
+}
+
+model Claim {
+  id          String   @id @default(cuid())
+  claimNumber String   @unique
+  dateOfService DateTime
+  billedAmount Float
+  paidAmount   Float    @default(0)
+  balance      Float
+  status       String   // Submitted, Pending, Paid, Denied, Resubmitted
+  age          Int      // Days since submission
+  cptCode      String?
+  icdCode      String?
+  units        Int      @default(1)
+  posCode      String?
+  priorAuthRequired Boolean @default(false)
+  priorAuthObtained Boolean @default(false)
+  denialCode   String?
+  denialReason String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  practiceId   String
+  practice     Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  providerId   String
+  provider     Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  payerId      String
+  payer        Payer    @relation(fields: [payerId], references: [id], onDelete: Cascade)
+
+  payments     Payment[]
+  writeOffs    WriteOff[]
+
+  @@map("claims")
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  dateTime    DateTime
+  type        String   // New Patient, Follow-up, Preventive, Procedure, etc.
+  status      String   // Scheduled, Confirmed, Arrived, Completed, Cancelled
+  copay       Float?
+  vobStatus   String?  // Verified, Pending, Not Required
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  providerId  String
+  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+model VOB {
+  id          String   @id @default(cuid())
+  appointmentDate DateTime
+  deductible   Float?
+  metDeductible Float?
+  copay        Float?
+  coinsurance  String?
+  authRequired Boolean @default(false)
+  status       String   // Verified, Pending, Denied
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  practiceId   String
+  practice     Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  payerId      String
+  payer        Payer    @relation(fields: [payerId], references: [id], onDelete: Cascade)
+
+  @@map("vobs")
+}
+
+model PriorAuth {
+  id          String   @id @default(cuid())
+  paNumber    String   @unique
+  service     String
+  requestedDate DateTime
+  unitsRequested Int
+  unitsApproved Int?
+  expirationDate DateTime?
+  status      String   // Pending, Approved, Partial, Denied
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  payerId     String
+  payer       Payer    @relation(fields: [payerId], references: [id], onDelete: Cascade)
+
+  @@map("prior_auths")
+}
+
+model Credentialing {
+  id          String   @id @default(cuid())
+  submittedDate DateTime
+  effectiveDate DateTime?
+  expirationDate DateTime?
+  daysLeft     Int?
+  status       String   // Active, Pending, Expiring Soon, Expired
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  providerId  String
+  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  payerId     String
+  payer       Payer    @relation(fields: [payerId], references: [id], onDelete: Cascade)
+
+  @@map("credentialings")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  date        DateTime
+  amount      Float
+  type        String   // Payment, Adjustment, Refund
+  method      String?  // Check, EFT, Credit Card
+  reference   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  patientId   String?
+  patient     Patient? @relation(fields: [patientId], references: [id])
+
+  claimId     String?
+  claim       Claim?   @relation(fields: [claimId], references: [id])
+
+  payerId     String?
+  payer       Payer?   @relation(fields: [payerId], references: [id])
+
+  @@map("payments")
+}
+
+model WriteOff {
+  id          String   @id @default(cuid())
+  date        DateTime
+  amount      Float
+  category    String   // Contractual, Charity, Bad Debt
+  authorizedBy String?
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  claimId     String
+  claim       Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@map("write_offs")
+}
