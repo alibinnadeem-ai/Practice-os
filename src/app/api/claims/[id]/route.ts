@@ -1,35 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET /api/claims - Get all claims
-export async function GET(request: NextRequest) {
-  try {
-    const claims = await prisma.claim.findMany({
-      include: {
-        patient: true,
-        provider: true,
-        payer: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return NextResponse.json(claims);
-  } catch (error) {
-    console.error('Error fetching claims:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch claims' },
-      { status: 500 }
-    );
-  }
-}
-
 // DELETE /api/claims/[id] - Delete a claim
-export async function DELETE(request: NextRequest) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const url = new URL(request.url);
-    const id = url.pathname.split('/').pop();
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(

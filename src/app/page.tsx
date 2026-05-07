@@ -52,7 +52,7 @@ type PageKey =
 type Practice = { id: number; name: string; type: string; npi: string };
 type Patient = { id: string; fn: string; ln: string; dob: string; ph: string; ins: string; mid: string; bal: number; lv: string };
 type Appointment = { time: string; pt: string; dob: string; prov: string; type: string; ins: string; vob: string; cop: string; status: string };
-type Claim = { id: string; pt: string; dos: string; pay: string; billed: number; paid: number; bal: number; status: string; age: number };
+type Claim = { id: string; dbId: string; pt: string; dos: string; pay: string; billed: number; paid: number; bal: number; status: string; age: number };
 type Denial = { cl: string; pt: string; pay: string; amt: number; code: string; reason: string; days: number; appeal: string };
 type Payment = { date: string; cl: string; pt: string; pay: string; billed: number; allowed: number; adj: number; paid: number; pr: number; type: string };
 type Writeoff = { date: string; cl: string; pt: string; pay: string; amt: number; cat: string; auth: string; reason: string };
@@ -115,16 +115,16 @@ const initialAppointments: Appointment[] = [
 ];
 
 const initialClaims: Claim[] = [
-  { id: 'CLM-001', pt: 'Sarah Johnson', dos: '2025-04-10', pay: 'Delta Care', billed: 450, paid: 280, bal: 170, status: 'Paid', age: 22 },
-  { id: 'CLM-002', pt: 'Michael Torres', dos: '2025-04-15', pay: 'Aetna', billed: 1200, paid: 0, bal: 1200, status: 'Denied', age: 17 },
-  { id: 'CLM-003', pt: 'Linda Patel', dos: '2025-04-18', pay: 'Delta Dental', billed: 320, paid: 245, bal: 75, status: 'Paid', age: 14 },
-  { id: 'CLM-004', pt: 'James Wilson', dos: '2025-03-22', pay: 'Medicare', billed: 980, paid: 0, bal: 980, status: 'Pending', age: 40 },
-  { id: 'CLM-005', pt: 'Emily Chen', dos: '2025-04-28', pay: 'Delta Care', billed: 180, paid: 122, bal: 58, status: 'Paid', age: 4 },
-  { id: 'CLM-006', pt: 'Robert Kim', dos: '2025-04-05', pay: 'Self-Pay', billed: 620, paid: 0, bal: 620, status: 'Pending', age: 27 },
-  { id: 'CLM-007', pt: 'Maria Garcia', dos: '2025-04-20', pay: 'Medicaid', billed: 275, paid: 0, bal: 275, status: 'Submitted', age: 12 },
-  { id: 'CLM-008', pt: 'Sarah Johnson', dos: '2025-03-01', pay: 'Delta Care', billed: 890, paid: 0, bal: 890, status: 'Denied', age: 61 },
-  { id: 'CLM-009', pt: 'Michael Torres', dos: '2025-02-10', pay: 'Aetna', billed: 540, paid: 0, bal: 540, status: 'Resubmitted', age: 80 },
-  { id: 'CLM-010', pt: 'Linda Patel', dos: '2025-01-15', pay: 'Delta Dental', billed: 760, paid: 0, bal: 760, status: 'Denied', age: 105 },
+  { id: 'CLM-001', dbId: 'dummy-1', pt: 'Sarah Johnson', dos: '2025-04-10', pay: 'Delta Care', billed: 450, paid: 280, bal: 170, status: 'Paid', age: 22 },
+  { id: 'CLM-002', dbId: 'dummy-2', pt: 'Michael Torres', dos: '2025-04-15', pay: 'Aetna', billed: 1200, paid: 0, bal: 1200, status: 'Denied', age: 17 },
+  { id: 'CLM-003', dbId: 'dummy-3', pt: 'Linda Patel', dos: '2025-04-18', pay: 'Delta Dental', billed: 320, paid: 245, bal: 75, status: 'Paid', age: 14 },
+  { id: 'CLM-004', dbId: 'dummy-4', pt: 'James Wilson', dos: '2025-03-22', pay: 'Medicare', billed: 980, paid: 0, bal: 980, status: 'Pending', age: 40 },
+  { id: 'CLM-005', dbId: 'dummy-5', pt: 'Emily Chen', dos: '2025-04-28', pay: 'Delta Care', billed: 180, paid: 122, bal: 58, status: 'Paid', age: 4 },
+  { id: 'CLM-006', dbId: 'dummy-6', pt: 'Robert Kim', dos: '2025-04-05', pay: 'Self-Pay', billed: 620, paid: 0, bal: 620, status: 'Pending', age: 27 },
+  { id: 'CLM-007', dbId: 'dummy-7', pt: 'Maria Garcia', dos: '2025-04-20', pay: 'Medicaid', billed: 275, paid: 0, bal: 275, status: 'Submitted', age: 12 },
+  { id: 'CLM-008', dbId: 'dummy-8', pt: 'Sarah Johnson', dos: '2025-03-01', pay: 'Delta Care', billed: 890, paid: 0, bal: 890, status: 'Denied', age: 61 },
+  { id: 'CLM-009', dbId: 'dummy-9', pt: 'Michael Torres', dos: '2025-02-10', pay: 'Aetna', billed: 540, paid: 0, bal: 540, status: 'Resubmitted', age: 80 },
+  { id: 'CLM-010', dbId: 'dummy-10', pt: 'Linda Patel', dos: '2025-01-15', pay: 'Delta Dental', billed: 760, paid: 0, bal: 760, status: 'Denied', age: 105 },
 ];
 
 const initialDenials: Denial[] = [
@@ -233,7 +233,15 @@ export default function Home() {
     window.setTimeout(() => setToasts(prev => prev.filter(item => item.id !== id)), 3500);
   };
 
-  const openModal = (id: string) => {
+  const openModal = async (id: string) => {
+    // Ensure data is loaded before opening modals that need it
+    if (id === 'm-claim' || id === 'm-appt' || id === 'm-pa' || id === 'm-vob' || id === 'm-wo' || id === 'm-pay') {
+      if (patients.length === 0 || providers.length === 0 || payers.length === 0) {
+        toast('Loading data...', 'ti');
+        await refreshData();
+      }
+    }
+
     setModal(id);
     if (id === 'm-claim' || id === 'm-appt' || id === 'm-pa' || id === 'm-vob' || id === 'm-wo' || id === 'm-pay' || id === 'm-payer' || id === 'm-cred' || id === 'm-prov') {
       setFormData({});
@@ -584,6 +592,93 @@ export default function Home() {
     <option key={patient.id} value={patient.id}>{patient.fn} {patient.ln}</option>
   ));
 
+  const renderProviderOptions = providers.map(provider => (
+    <option key={provider.name} value={provider.name}>{provider.name}</option>
+  ));
+
+  const renderPayerOptions = payers.map(payer => (
+    <option key={payer.name} value={payer.name}>{payer.name}</option>
+  ));
+
+  // Function to refresh data from API
+  const refreshData = async () => {
+    try {
+      // Fetch claims
+      const claimsResponse = await fetch('/api/claims');
+      if (claimsResponse.ok) {
+        const claimsData = await claimsResponse.json();
+        const transformedClaims = claimsData.map((claim: any) => ({
+          id: claim.claimNumber,
+          dbId: claim.id, // Store the database ID for API calls
+          pt: `${claim.patient.firstName} ${claim.patient.lastName}`,
+          dos: new Date(claim.dateOfService).toISOString().slice(0, 10),
+          pay: claim.payer.name,
+          billed: claim.billedAmount,
+          paid: claim.billedAmount - claim.balance,
+          bal: claim.balance,
+          status: claim.status,
+          age: claim.age,
+        }));
+        setClaims(transformedClaims);
+      }
+
+      // Fetch patients
+      const patientsResponse = await fetch('/api/patients');
+      if (patientsResponse.ok) {
+        const patientsData = await patientsResponse.json();
+        const transformedPatients = patientsData.map((patient: any) => ({
+          id: patient.mrn,
+          fn: patient.firstName,
+          ln: patient.lastName,
+          dob: new Date(patient.dob).toISOString().slice(0, 10),
+          ph: patient.phone || '',
+          ins: patient.insurance || '',
+          mid: patient.memberId || '',
+          bal: patient.balance,
+          lv: patient.lastVisit ? new Date(patient.lastVisit).toISOString().slice(0, 10) : '',
+        }));
+        setPatients(transformedPatients);
+      }
+
+      // Fetch providers
+      const providersResponse = await fetch('/api/providers');
+      if (providersResponse.ok) {
+        const providersData = await providersResponse.json();
+        const transformedProviders = providersData.map((provider: any) => ({
+          name: provider.name,
+          spec: provider.specialty || '',
+          npi: provider.npi,
+          dea: provider.dea || '',
+          rvu: provider.monthlyRVU || 0,
+          col: provider.collections || 0,
+          cred: 0,
+          status: provider.status,
+        }));
+        setProviders(transformedProviders);
+      }
+
+      // Fetch payers
+      const payersResponse = await fetch('/api/payers');
+      if (payersResponse.ok) {
+        const payersData = await payersResponse.json();
+        const transformedPayers = payersData.map((payer: any) => ({
+          name: payer.name,
+          type: payer.type,
+          pid: payer.payerId || '',
+          rate: payer.avgPayRate || 0,
+          visits: payer.visitsPerMonth || 0,
+          ar: payer.arDays || 0,
+          exp: payer.contractExp ? new Date(payer.contractExp).toISOString().slice(0, 10) : 'N/A',
+          status: payer.status,
+        }));
+        setPayers(transformedPayers);
+      }
+
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  };
+
   const dashboardPayerBars = useMemo(() => {
     const counts = claims.reduce<Record<string, number>>((acc, claim) => {
       acc[claim.pay] = (acc[claim.pay] || 0) + 1;
@@ -594,14 +689,19 @@ export default function Home() {
 
   const addClaim = async () => {
     try {
-      // Get the practice ID - for now, we'll use a hardcoded practice ID
-      // In a real app, this would come from user context or settings
-      const practiceId = 'your-practice-id'; // This needs to be set properly
+      console.log('Form data:', formData);
+      console.log('Patients:', patients);
+      console.log('Providers:', providers);
+      console.log('Payers:', payers);
 
       // Find patient and provider IDs from the form data
       const patient = patients.find(p => p.id === formData['cl-pt']);
       const provider = providers.find(p => p.name === formData['cl-prov']);
       const payer = payers.find(p => p.name === formData['cl-pay']);
+
+      console.log('Found patient:', patient);
+      console.log('Found provider:', provider);
+      console.log('Found payer:', payer);
 
       if (!patient || !provider || !payer) {
         toast('Invalid patient, provider, or payer selected', 'te');
@@ -635,6 +735,7 @@ export default function Home() {
         // Transform the API response to match frontend format
         const transformedClaim = {
           id: newClaim.claimNumber,
+          dbId: newClaim.id,
           pt: `${newClaim.patient.firstName} ${newClaim.patient.lastName}`,
           dos: new Date(newClaim.dateOfService).toISOString().slice(0, 10),
           pay: newClaim.payer.name,
@@ -648,6 +749,8 @@ export default function Home() {
         setClaims(prev => [transformedClaim, ...prev]);
         setModal(null);
         toast(`Claim ${newClaim.claimNumber} submitted`, 'ts');
+        // Refresh data to ensure all clients are in sync
+        await refreshData();
       } else {
         const error = await response.json();
         toast(`Failed to create claim: ${error.error}`, 'te');
@@ -1190,9 +1293,23 @@ export default function Home() {
                               <button
                                 className="btn btn-xs btn-d"
                                 type="button"
-                                onClick={() => {
-                                  setClaims(prev => prev.filter(item => item.id !== claim.id));
-                                  toast('Deleted', 'te');
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(`/api/claims/${claim.dbId}`, {
+                                      method: 'DELETE',
+                                    });
+
+                                    if (response.ok) {
+                                      toast('Claim deleted', 'ts');
+                                      await refreshData(); // Refresh data to sync across all clients
+                                    } else {
+                                      const error = await response.json();
+                                      toast(`Failed to delete claim: ${error.error}`, 'te');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error deleting claim:', error);
+                                    toast('Failed to delete claim', 'te');
+                                  }
                                 }}
                               >
                                 Del
@@ -2186,9 +2303,9 @@ export default function Home() {
                 <div className="fg">
                   <div className="fi"><label>Patient</label><select value={formData['cl-pt'] || ''} onChange={e => setFormData(prev => ({ ...prev, 'cl-pt': e.target.value }))}><option value="">Select...</option>{renderListOptions}</select></div>
                   <div className="fi"><label>Date of Service</label><input type="date" value={formData['cl-dos'] || ''} onChange={e => setFormData(prev => ({ ...prev, 'cl-dos': e.target.value }))} /></div>
-                  <div className="fi"><label>Primary Payer</label><select value={formData['cl-pay'] || 'Delta Care'} onChange={e => setFormData(prev => ({ ...prev, 'cl-pay': e.target.value }))}><option>Delta Care</option><option>Delta Dental</option><option>Aetna</option><option>Medicare</option><option>Medicaid</option><option>Self-Pay</option></select></div>
+                  <div className="fi"><label>Primary Payer</label><select value={formData['cl-pay'] || ''} onChange={e => setFormData(prev => ({ ...prev, 'cl-pay': e.target.value }))}><option value="">Select...</option>{renderPayerOptions}</select></div>
                   <div className="fi"><label>Member ID</label><input value={formData['cl-mid'] || ''} onChange={e => setFormData(prev => ({ ...prev, 'cl-mid': e.target.value }))} placeholder="INS123456" /></div>
-                  <div className="fi"><label>Provider</label><select value={formData['cl-prov'] || 'Dr. Smith'} onChange={e => setFormData(prev => ({ ...prev, 'cl-prov': e.target.value }))}><option>Dr. Smith</option><option>Dr. Jones</option></select></div>
+                  <div className="fi"><label>Provider</label><select value={formData['cl-prov'] || ''} onChange={e => setFormData(prev => ({ ...prev, 'cl-prov': e.target.value }))}><option value="">Select...</option>{renderProviderOptions}</select></div>
                   <div className="fi"><label>POS</label><select value={formData['cl-pos'] || '11-Office'} onChange={e => setFormData(prev => ({ ...prev, 'cl-pos': e.target.value }))}><option>11-Office</option><option>21-Inpatient</option><option>22-Outpatient</option><option>12-Home</option></select></div>
                   <div className="fi"><label>CPT / Procedure Code</label><input value={formData['cl-cpt'] || ''} onChange={e => setFormData(prev => ({ ...prev, 'cl-cpt': e.target.value }))} placeholder="D0150, D1110, 99213…" /></div>
                   <div className="fi"><label>ICD-10 Diagnosis</label><input value={formData['cl-icd'] || ''} onChange={e => setFormData(prev => ({ ...prev, 'cl-icd': e.target.value }))} placeholder="K08.109" /></div>
@@ -2381,19 +2498,24 @@ export default function Home() {
             <div className="mf">
               <button className="btn" type="button" onClick={closeModal}>Cancel</button>
               {['m-claim', 'm-patient', 'm-appt', 'm-pay', 'm-wo', 'm-payer', 'm-vob', 'm-pa', 'm-cred', 'm-prov', 'm-newprac'].includes(modal) && (
-                <button className="btn btn-p" type="button" onClick={() => {
-                  if (modal === 'm-claim') addClaim();
-                  if (modal === 'm-patient') savePatient();
-                  if (modal === 'm-appt') addAppointment();
-                  if (modal === 'm-pay') addPay();
-                  if (modal === 'm-wo') addWriteoff();
-                  if (modal === 'm-payer') addPayer();
-                  if (modal === 'm-vob') addVOB();
-                  if (modal === 'm-pa') addPA();
-                  if (modal === 'm-cred') addCred();
-                  if (modal === 'm-prov') addProvider();
-                  if (modal === 'm-newprac') addPractice();
-                }}>
+                <button 
+                  className="btn btn-p" 
+                  type="button" 
+                  disabled={modal === 'm-claim' && (patients.length === 0 || providers.length === 0 || payers.length === 0)}
+                  onClick={() => {
+                    if (modal === 'm-claim') addClaim();
+                    if (modal === 'm-patient') savePatient();
+                    if (modal === 'm-appt') addAppointment();
+                    if (modal === 'm-pay') addPay();
+                    if (modal === 'm-wo') addWriteoff();
+                    if (modal === 'm-payer') addPayer();
+                    if (modal === 'm-vob') addVOB();
+                    if (modal === 'm-pa') addPA();
+                    if (modal === 'm-cred') addCred();
+                    if (modal === 'm-prov') addProvider();
+                    if (modal === 'm-newprac') addPractice();
+                  }}
+                >
                   {modal === 'm-claim' && 'Submit Claim →'}
                   {modal === 'm-patient' && (patientEditIndex !== null ? 'Update Patient' : 'Save Patient')}
                   {modal === 'm-appt' && 'Schedule'}
