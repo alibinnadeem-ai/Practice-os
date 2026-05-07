@@ -256,6 +256,90 @@ export default function Home() {
     return () => window.clearInterval(interval);
   }, []);
 
+  // Fetch data from API on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch claims
+        const claimsResponse = await fetch('/api/claims');
+        if (claimsResponse.ok) {
+          const claimsData = await claimsResponse.json();
+          // Transform API data to match frontend format
+          const transformedClaims = claimsData.map((claim: any) => ({
+            id: claim.claimNumber,
+            pt: `${claim.patient.firstName} ${claim.patient.lastName}`,
+            dos: new Date(claim.dateOfService).toISOString().slice(0, 10),
+            pay: claim.payer.name,
+            billed: claim.billedAmount,
+            paid: claim.billedAmount - claim.balance,
+            bal: claim.balance,
+            status: claim.status,
+            age: claim.age,
+          }));
+          setClaims(transformedClaims);
+        }
+
+        // Fetch patients
+        const patientsResponse = await fetch('/api/patients');
+        if (patientsResponse.ok) {
+          const patientsData = await patientsResponse.json();
+          const transformedPatients = patientsData.map((patient: any) => ({
+            id: patient.mrn,
+            fn: patient.firstName,
+            ln: patient.lastName,
+            dob: new Date(patient.dob).toISOString().slice(0, 10),
+            ph: patient.phone || '',
+            ins: patient.insurance || '',
+            mid: patient.memberId || '',
+            bal: patient.balance,
+            lv: patient.lastVisit ? new Date(patient.lastVisit).toISOString().slice(0, 10) : '',
+          }));
+          setPatients(transformedPatients);
+        }
+
+        // Fetch providers
+        const providersResponse = await fetch('/api/providers');
+        if (providersResponse.ok) {
+          const providersData = await providersResponse.json();
+          const transformedProviders = providersData.map((provider: any) => ({
+            name: provider.name,
+            spec: provider.specialty || '',
+            npi: provider.npi,
+            dea: provider.dea || '',
+            rvu: provider.monthlyRVU || 0,
+            col: provider.collections || 0,
+            cred: 0, // This would need to be calculated from credentialings
+            status: provider.status,
+          }));
+          setProviders(transformedProviders);
+        }
+
+        // Fetch payers
+        const payersResponse = await fetch('/api/payers');
+        if (payersResponse.ok) {
+          const payersData = await payersResponse.json();
+          const transformedPayers = payersData.map((payer: any) => ({
+            name: payer.name,
+            type: payer.type,
+            pid: payer.payerId || '',
+            rate: payer.avgPayRate || 0,
+            visits: payer.visitsPerMonth || 0,
+            ar: payer.arDays || 0,
+            exp: payer.contractExp ? new Date(payer.contractExp).toISOString().slice(0, 10) : 'N/A',
+            status: payer.status,
+          }));
+          setPayers(transformedPayers);
+        }
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast('Failed to load data from server', 'te');
+      }
+    };
+
+    fetchData();
+  }, []);
+
   useEffect(() => {
     if (activePage === 'dashboard') {
       const totalBilled = claims.reduce((sum, claim) => sum + claim.billed, 0);
@@ -508,13 +592,70 @@ export default function Home() {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [claims]);
 
-  const addClaim = () => {
-    const id = `CLM-${(claims.length + 1).toString().padStart(3, '0')}`;
-    const billed = Number(formData['cl-amt'] || 0);
-    const patientName = patients.find(p => p.id === formData['cl-pt']) ? `${patients.find(p => p.id === formData['cl-pt'])?.fn} ${patients.find(p => p.id === formData['cl-pt'])?.ln}` : 'New Patient';
-    setClaims(prev => [{ id, pt: patientName, dos: formData['cl-dos'] || today(), pay: formData['cl-pay'] || 'Delta Care', billed, paid: 0, bal: billed, status: 'Submitted', age: 0 }, ...prev]);
-    setModal(null);
-    toast(`Claim ${id} submitted`, 'ts');
+  const addClaim = async () => {
+    try {
+      // Get the practice ID - for now, we'll use a hardcoded practice ID
+      // In a real app, this would come from user context or settings
+      const practiceId = 'your-practice-id'; // This needs to be set properly
+
+      // Find patient and provider IDs from the form data
+      const patient = patients.find(p => p.id === formData['cl-pt']);
+      const provider = providers.find(p => p.name === formData['cl-prov']);
+      const payer = payers.find(p => p.name === formData['cl-pay']);
+
+      if (!patient || !provider || !payer) {
+        toast('Invalid patient, provider, or payer selected', 'te');
+        return;
+      }
+
+      const claimData = {
+        claimNumber: `CLM-${Date.now()}`, // Generate a unique claim number
+        practiceId: 'cmovb28l40000k8vfc94edb07', // The actual practice ID from seeded data
+        patientId: patient.id,
+        providerId: provider.npi, // Using NPI as the ID
+        payerId: payer.name, // Using name as ID for now
+        dateOfService: formData['cl-dos'] || today(),
+        billedAmount: Number(formData['cl-amt'] || 0),
+        cptCode: formData['cl-cpt'] || 'D0120',
+        icdCode: formData['cl-icd'] || 'K02.9',
+        units: 1,
+        posCode: '11',
+      };
+
+      const response = await fetch('/api/claims', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(claimData),
+      });
+
+      if (response.ok) {
+        const newClaim = await response.json();
+        // Transform the API response to match frontend format
+        const transformedClaim = {
+          id: newClaim.claimNumber,
+          pt: `${newClaim.patient.firstName} ${newClaim.patient.lastName}`,
+          dos: new Date(newClaim.dateOfService).toISOString().slice(0, 10),
+          pay: newClaim.payer.name,
+          billed: newClaim.billedAmount,
+          paid: newClaim.billedAmount - newClaim.balance,
+          bal: newClaim.balance,
+          status: newClaim.status,
+          age: newClaim.age,
+        };
+
+        setClaims(prev => [transformedClaim, ...prev]);
+        setModal(null);
+        toast(`Claim ${newClaim.claimNumber} submitted`, 'ts');
+      } else {
+        const error = await response.json();
+        toast(`Failed to create claim: ${error.error}`, 'te');
+      }
+    } catch (error) {
+      console.error('Error creating claim:', error);
+      toast('Failed to create claim', 'te');
+    }
   };
 
   const addAppointment = () => {

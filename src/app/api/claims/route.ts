@@ -52,14 +52,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Look up the payer by name if payerId is a string (name)
+    let payer;
+    if (typeof payerId === 'string' && !payerId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)) {
+      payer = await prisma.payer.findUnique({
+        where: { name: payerId },
+      });
+      if (!payer) {
+        return NextResponse.json(
+          { error: 'Payer not found' },
+          { status: 400 }
+        );
+      }
+    } else {
+      payer = await prisma.payer.findUnique({
+        where: { id: payerId },
+      });
+      if (!payer) {
+        return NextResponse.json(
+          { error: 'Payer not found' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Look up the provider by NPI if providerId is a string (NPI)
+    let provider;
+    if (typeof providerId === 'string' && providerId.match(/^\d{10}$/)) {
+      provider = await prisma.provider.findUnique({
+        where: { npi: providerId },
+      });
+      if (!provider) {
+        return NextResponse.json(
+          { error: 'Provider not found' },
+          { status: 400 }
+        );
+      }
+    } else {
+      provider = await prisma.provider.findUnique({
+        where: { id: providerId },
+      });
+      if (!provider) {
+        return NextResponse.json(
+          { error: 'Provider not found' },
+          { status: 400 }
+        );
+      }
+    }
+
     const billedAmountNum = parseFloat(billedAmount);
     const claim = await prisma.claim.create({
       data: {
         claimNumber,
         practiceId,
         patientId,
-        providerId,
-        payerId,
+        providerId: provider.id,
+        payerId: payer.id,
         dateOfService: new Date(dateOfService),
         billedAmount: billedAmountNum,
         balance: billedAmountNum, // Initial balance equals billed amount
